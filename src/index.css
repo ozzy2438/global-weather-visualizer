@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-gray-900 text-gray-100;
+}
+
+.leaflet-container {
+  background-color: #1a1a1a !important;
+}
+
+.leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
+}
+
+.leaflet-control-attribution {
+  @apply bg-gray-800 !important;
+  @apply text-gray-400 !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  @apply stroke-gray-700;
+}
+
+.recharts-text {
+  @apply fill-gray-400;
+}
