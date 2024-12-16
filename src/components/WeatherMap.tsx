@@ -1,50 +1,47 @@
-import React, { useState, useCallback } from 'react';
-import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import React, { useState } from 'react';
+import { MapContainer, TileLayer, useMap, Popup, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useWeather } from '../context/WeatherContext';
-import L from 'leaflet';
+import { LeafletMouseEvent, Icon } from 'leaflet';
+
+// Leaflet default icon sorunu için
+const defaultIcon = new Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
 
 const WeatherMap: React.FC = () => {
   const { currentWeather, fetchWeatherData } = useWeather();
-  const [center, setCenter] = useState<[number, number]>([20, 0]);
-  const [rotation, setRotation] = useState<number>(0);
+  const [marker, setMarker] = useState<[number, number] | null>(null);
 
   const MapControls = () => {
     const map = useMap();
 
     React.useEffect(() => {
-      const width = map.getSize().x;
-      const height = map.getSize().y;
-      
-      const projection = L.CRS.EPSG3857.projection;
-      projection._project = function(latlng: L.LatLng) {
-        const d = Math.PI / 180;
-        const lat = latlng.lat * d;
-        const lng = (latlng.lng + rotation) * d;
-        const radius = width / (2 * Math.PI);
+      if (!map) return;
+
+      const handleClick = (e: LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        setMarker([lat, lng]);
+        fetchWeatherData(lat, lng);
         
-        const x = radius * Math.cos(lat) * Math.sin(lng);
-        const y = radius * Math.sin(lat);
-        
-        return new L.Point(x + width / 2, height / 2 - y);
+        // Tıklanan noktaya zoom yap
+        map.setView([lat, lng], Math.max(map.getZoom(), 5), {
+          animate: true,
+          duration: 1
+        });
       };
 
-      map.options.crs = L.CRS.EPSG3857;
-      map.setView(center, 3);
-    }, [rotation]);
-
-    const mapEvents = useMapEvents({
-      drag: () => {
-        const center = map.getCenter();
-        setCenter([center.lat, center.lng]);
-        setRotation((rotation + 1) % 360);
-        map.invalidateSize();
-      },
-      click: (e) => {
-        const { lat, lng } = e.latlng;
-        fetchWeatherData(lat, lng);
-      }
-    });
+      map.on('click', handleClick);
+      return () => {
+        map.off('click', handleClick);
+      };
+    }, [map]);
 
     return null;
   };
@@ -54,19 +51,34 @@ const WeatherMap: React.FC = () => {
       <h2 className="text-xl font-bold mb-4 text-white">Interactive Globe View</h2>
       <div className="h-[600px] w-full rounded-lg overflow-hidden relative">
         <MapContainer
-          center={center}
+          center={[20, 0]}
           zoom={3}
           className="h-full w-full rounded-lg"
           minZoom={2}
-          maxZoom={6}
+          maxZoom={12}
           scrollWheelZoom={true}
-          dragging={true}
+          zoomControl={true}
+          doubleClickZoom={true}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            noWrap={true}
           />
+          {marker && (
+            <Marker position={marker} icon={defaultIcon}>
+              {currentWeather && (
+                <Popup autoPan={true}>
+                  <div className="text-gray-900">
+                    <h3 className="font-bold">{currentWeather.name}</h3>
+                    <p className="text-lg">{currentWeather.main.temp.toFixed(1)}°C</p>
+                    <p>{currentWeather.weather[0].description}</p>
+                    <p>Nem: {currentWeather.main.humidity}%</p>
+                    <p>Rüzgar: {currentWeather.wind.speed} m/s</p>
+                  </div>
+                </Popup>
+              )}
+            </Marker>
+          )}
           <MapControls />
         </MapContainer>
         {currentWeather && (
@@ -78,7 +90,7 @@ const WeatherMap: React.FC = () => {
         )}
       </div>
       <p className="text-sm text-gray-400 mt-4">
-        Drag the map to rotate the globe. Click anywhere to see weather details.
+        Click anywhere on the map to see weather details.
       </p>
     </div>
   );
